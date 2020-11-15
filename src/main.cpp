@@ -29,7 +29,7 @@ bool connect_sps30();
 bool read_scd30_data();
 bool read_sps30_data();
 void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
-void send_sps30_data(char *topic, float massPM1, float massPM2, float massPM4, float massPM10, float numPM0, float numPM1, float numPM2, float numPM4, float numPM10, float partSize);
+void send_sps30_data(char *topic, float massPM2, float numPM2, float partSize);
 
 float  co2, temp, humid;
 float massPM1, massPM2, massPM4, massPM10;
@@ -65,15 +65,23 @@ void loop()
   if (read_scd30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
   }
+  else {
+    Serial.println("no new scd30 data");
+  }
+  delay(1000);
   if (read_sps30_data()) {
-    send_sps30_data("sensordata/sps30", co2, temp, humid);
+    send_sps30_data("sensordata/sps30", massPM2, numPM2, partSize);
+  }
+  else
+  {
+    Serial.println("no new sps30 data");
   }
 }
 
 void connect_wifi() 
 {
   delay(10);
-  Serial.print("Connecting to ");
+  Serial.print("connecting to ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
 
@@ -88,7 +96,7 @@ void connect_wifi()
 
 void callback(char* topic, byte* payload, unsigned int length)
 {
-  Serial.print("Message arrived [");
+  Serial.print("message arrived [");
   Serial.print(topic);
   Serial.print("] ");
 
@@ -101,7 +109,7 @@ void callback(char* topic, byte* payload, unsigned int length)
 void reconnect()
 {
   while (!client.connected()) {
-    Serial.println("Attempting MQTT connection...");
+    Serial.println("attempting MQTT connection...");
 
     if (client.connect("arduinoClient")) {
       Serial.println("connected");
@@ -131,12 +139,22 @@ bool connect_scd30()
 
 bool connect_sps30()
 {
-  if (sps30.begin(&Wire) == false) {
+  Serial.println("connecting sps30...");
+  sps30.EnableDebugging(0);
+  if (!sps30.begin(&Wire)) {
     Serial.println("sps30 not detected. Please check wiring. ...");
     return false;
   }
   if (!sps30.probe()) {
     Serial.println("could not probe sps30...");
+    return false;
+  }
+  if (!sps30.reset()) {
+    Serial.println("could not reset sps30...");
+    return false;
+  }
+  if (!sps30.start()) {
+    Serial.println("could not start sps30...");
     return false;
   }
   Serial.println("sps30 connected");
@@ -159,31 +177,37 @@ bool read_scd30_data()
 
 bool read_sps30_data()
 {
-  uint8_t ret = 0, error_cnt = 0;
+  uint8_t ret, error_cnt = 0;
   struct sps_values val;
-  while (ret != ERR_OK) {
+  do {
     ret = sps30.GetValues(&val);
     if (ret == ERR_DATALENGTH){
-      if (error_cnt++ > 3) {
-        Serial.println("Error during reading values: ");
-      }
-      return false;
+        if (error_cnt++ > 3) {
+          Serial.println("error during reading sps30 values");
+          return(false);
+        }
+        delay(1000);
     }
-    else if (ret != ERR_OK) {
-      Serial.println("Error during reading values: ");
-      return false;
+    else if(ret != ERR_OK) {
+      Serial.println("error during reading sps30 values");
+      return(false);
     }
-  }
-  massPM1 = val.MassPM1;
+  } while (ret != ERR_OK);
   massPM2 = val.MassPM2;
-  massPM4 = val.MassPM4;
-  massPM10 = val.MassPM10;
-  numPM0 = val.NumPM0;
-  numPM1 = val.NumPM1;
   numPM2 = val.NumPM2;
-  numPM4 = val.NumPM4;
-  numPM10 = val.NumPM10;
   partSize = val.PartSize;
+  /*
+  Serial.println(massPM1);
+  Serial.println(massPM2);
+  Serial.println(massPM4);
+  Serial.println(massPM10);
+  Serial.println(numPM0);
+  Serial.println(numPM1);
+  Serial.println(numPM2);
+  Serial.println(numPM4);
+  Serial.println(numPM10);
+  Serial.println(partSize);
+  */
   return true;
 }
 
@@ -200,22 +224,15 @@ void send_scd30_data(char *topic, float co2, float temp, float humid)
   client.publish(topic, data_a);
 }
 
-void send_sps30_data(char *topic, float massPM1, float massPM2, float massPM4, float massPM10, float numPM0, float numPM1, float numPM2, float numPM4, float numPM10, float partSize)
+void send_sps30_data(char *topic, float massPM2, float numPM2, float partSize)
 {
   char data_a[50];
-  String msg_buffer = "{ \"q\": " + String(massPM1);
-  String msg_buffer2 = ", \"w\": " + String(massPM2);
-  String msg_buffer3 = ", \"e\": " + String(massPM4);
-  String msg_buffer4 = ", \"r\": " + String(massPM10);
-  String msg_buffer5 = ", \"t\": " + String(numPM0);
-  String msg_buffer6 = ", \"y\": " + String(numPM1);
-  String msg_buffer7 = ", \"u\": " + String(numPM2);
-  String msg_buffer8 = ", \"i\": " + String(numPM4);
-  String msg_buffer9 = ", \"o\": " + String(numPM10);
-  String msg_buffer10 = ", \"p\": " + String(partSize);
-  String msg_buffer11 = "}";
+  String msg_buffer = "{ \"m\": " + String(massPM2);
+  String msg_buffer2 = ", \"n\": " + String(numPM2);
+  String msg_buffer3 = ", \"a\": " + String(partSize);
+  String msg_buffer4 = "}";
   
-  msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3 + msg_buffer4 + msg_buffer5 + msg_buffer6 + msg_buffer7 + msg_buffer8 + msg_buffer9 + msg_buffer10 + msg_buffer11;
+  msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3 + msg_buffer4;
   msg_buffer.toCharArray(data_a, msg_buffer.length() +1);
   client.publish(topic, data_a);
 }
