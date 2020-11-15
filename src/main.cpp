@@ -29,7 +29,7 @@ bool connect_sps30();
 bool read_scd30_data();
 bool read_sps30_data();
 void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
-void send_sps30_data(char *topic, float  co2, float  temp, float  humid);
+void send_sps30_data(char *topic, float massPM1, float massPM2, float massPM4, float massPM10, float numPM0, float numPM1, float numPM2, float numPM4, float numPM10, float partSize);
 
 float  co2, temp, humid;
 float massPM1, massPM2, massPM4, massPM10;
