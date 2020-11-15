@@ -29,10 +29,10 @@ bool connect_sps30();
 bool read_scd30_data();
 bool read_sps30_data();
 void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
-void send_sps30_data(char *topic, float massPM2, float massPM10, float partSize);
+void send_sps30_data(char *topic, float massPM2, float massPM10);
 
 float  co2, temp, humid;
-float massPM2, massPM10, partSize;
+float massPM2, massPM10;
 //float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize;
 
 void setup()
@@ -70,7 +70,7 @@ void loop()
   }
   delay(1000);
   if (read_sps30_data()) {
-    send_sps30_data("sensordata/sps30", massPM2, massPM10, partSize);
+    send_sps30_data("sensordata/sps30", massPM2, massPM10);
   }
   else
   {
@@ -195,14 +195,16 @@ bool read_sps30_data()
   } while (ret != ERR_OK);
   massPM2 = val.MassPM2;
   massPM10 = val.MassPM10;
-  partSize = val.PartSize;
+  
+
   Serial.println(val.MassPM2);
-  Serial.println(val.MassPM10);
-  Serial.println(val.PartSize);
   Serial.println(massPM2);
+  Serial.println(val.MassPM10);
   Serial.println(massPM10);
-  Serial.println(partSize);
+  
   /*
+  Serial.println(val.PartSize);
+  Serial.println(partSize);
   Serial.println(val.MassPM1);
   Serial.println(val.MassPM2);
   Serial.println(val.MassPM4);
@@ -230,15 +232,14 @@ void send_scd30_data(char *topic, float co2, float temp, float humid)
   client.publish(topic, data_a);
 }
 
-void send_sps30_data(char *topic, float massPM2, float massPM10, float partSize)
+void send_sps30_data(char *topic, float massPM2, float massPM10)
 {
   char data_a[50];
   String msg_buffer = "{ \"m\": " + String(massPM2);
   String msg_buffer2 = ", \"n\": " + String(massPM10);
-  String msg_buffer3 = ", \"a\": " + String(partSize);
-  String msg_buffer4 = "}";
+  String msg_buffer3 = "}";
   
-  msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3 + msg_buffer4;
+  msg_buffer = msg_buffer+ msg_buffer2 + msg_buffer3;
   msg_buffer.toCharArray(data_a, msg_buffer.length() +1);
   client.publish(topic, data_a);
 }
