@@ -29,11 +29,11 @@ bool connect_sps30();
 bool read_scd30_data();
 bool read_sps30_data();
 void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
-void send_sps30_data(char *topic, float massPM2, float numPM2, float partSize);
+void send_sps30_data(char *topic, float massPM2, float massPM10, float partSize);
 
 float  co2, temp, humid;
-float massPM1, massPM2, massPM4, massPM10;
-float numPM0, numPM1, numPM2, numPM4, numPM10, partSize;
+float massPM2, massPM10, partSize;
+//float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize;
 
 void setup()
 {
@@ -70,7 +70,7 @@ void loop()
   }
   delay(1000);
   if (read_sps30_data()) {
-    send_sps30_data("sensordata/sps30", massPM2, numPM2, partSize);
+    send_sps30_data("sensordata/sps30", massPM2, massPM10, partSize);
   }
   else
   {
@@ -194,19 +194,25 @@ bool read_sps30_data()
     }
   } while (ret != ERR_OK);
   massPM2 = val.MassPM2;
-  numPM2 = val.NumPM2;
+  massPM10 = val.MassPM10;
   partSize = val.PartSize;
-  /*
-  Serial.println(massPM1);
+  Serial.println(val.MassPM2);
+  Serial.println(val.MassPM10);
+  Serial.println(val.PartSize);
   Serial.println(massPM2);
-  Serial.println(massPM4);
   Serial.println(massPM10);
-  Serial.println(numPM0);
-  Serial.println(numPM1);
-  Serial.println(numPM2);
-  Serial.println(numPM4);
-  Serial.println(numPM10);
   Serial.println(partSize);
+  /*
+  Serial.println(val.MassPM1);
+  Serial.println(val.MassPM2);
+  Serial.println(val.MassPM4);
+  Serial.println(val.MassPM10);
+  Serial.println(val.NumPM0);
+  Serial.println(val.NumPM1);
+  Serial.println(val.NumPM2);
+  Serial.println(val.NumPM4);
+  Serial.println(val.NumPM10);
+  Serial.println(val.PartSize);
   */
   return true;
 }
@@ -224,11 +230,11 @@ void send_scd30_data(char *topic, float co2, float temp, float humid)
   client.publish(topic, data_a);
 }
 
-void send_sps30_data(char *topic, float massPM2, float numPM2, float partSize)
+void send_sps30_data(char *topic, float massPM2, float massPM10, float partSize)
 {
   char data_a[50];
   String msg_buffer = "{ \"m\": " + String(massPM2);
-  String msg_buffer2 = ", \"n\": " + String(numPM2);
+  String msg_buffer2 = ", \"n\": " + String(massPM10);
   String msg_buffer3 = ", \"a\": " + String(partSize);
   String msg_buffer4 = "}";
   
