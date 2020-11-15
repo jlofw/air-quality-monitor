@@ -105,9 +105,7 @@ void reconnect()
 
     if (client.connect("arduinoClient")) {
       Serial.println("connected");
-      // Once connected, publish an announcement...
       client.publish("sensorstatus","connected");
-      // ... and resubscribe
       client.subscribe("sensorstatus");
     }
 
@@ -161,17 +159,6 @@ bool read_scd30_data()
 
 bool read_sps30_data()
 {
-  if (scd30.dataAvailable()) {
-    co2 = scd30.getCO2();
-    temp = scd30.getTemperature();
-    humid = scd30.getHumidity();
-    return true;
-  }
-  else {
-    Serial.println("Waiting for new data");
-    return false;
-  }
-
   uint8_t ret = 0, error_cnt = 0;
   struct sps_values val;
   while (ret != ERR_OK) {
@@ -197,7 +184,6 @@ bool read_sps30_data()
   numPM4 = val.NumPM4;
   numPM10 = val.NumPM10;
   partSize = val.PartSize;
-  
   return true;
 }
 
@@ -214,15 +200,22 @@ void send_scd30_data(char *topic, float co2, float temp, float humid)
   client.publish(topic, data_a);
 }
 
-void send_sps30_data(char *topic, float co2, float temp, float humid)
+void send_sps30_data(char *topic, float massPM1, float massPM2, float massPM4, float massPM10, float numPM0, float numPM1, float numPM2, float numPM4, float numPM10, float partSize)
 {
   char data_a[50];
-  String msg_buffer = "{ \"c\": " + String(co2);
-  String msg_buffer2 = ", \"t\": " + String(temp);
-  String msg_buffer3 = ", \"h\": " + String(humid);
-  String msg_buffer4 = "}";
+  String msg_buffer = "{ \"q\": " + String(massPM1);
+  String msg_buffer2 = ", \"w\": " + String(massPM2);
+  String msg_buffer3 = ", \"e\": " + String(massPM4);
+  String msg_buffer4 = ", \"r\": " + String(massPM10);
+  String msg_buffer5 = ", \"t\": " + String(numPM0);
+  String msg_buffer6 = ", \"y\": " + String(numPM1);
+  String msg_buffer7 = ", \"u\": " + String(numPM2);
+  String msg_buffer8 = ", \"i\": " + String(numPM4);
+  String msg_buffer9 = ", \"o\": " + String(numPM10);
+  String msg_buffer10 = ", \"p\": " + String(partSize);
+  String msg_buffer11 = "}";
   
-  msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3 + msg_buffer4;
+  msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3 + msg_buffer4 + msg_buffer5 + msg_buffer6 + msg_buffer7 + msg_buffer8 + msg_buffer9 + msg_buffer10 + msg_buffer11;
   msg_buffer.toCharArray(data_a, msg_buffer.length() +1);
   client.publish(topic, data_a);
 }
