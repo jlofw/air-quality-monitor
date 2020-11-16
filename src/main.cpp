@@ -42,6 +42,7 @@ void setup()
   client.setServer(serverIPAddress, 1883);
   client.setCallback(callback);
   connect_wifi();
+
   if (!connect_scd30()) {
     Serial.println("could not connect scd30, stopping...");
     while (true)
@@ -62,20 +63,19 @@ void loop()
   }
   client.loop();
   delay(4000);
+
   if (read_scd30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
   }
-  else {
+  else
     Serial.println("no new scd30 data");
-  }
+
   delay(1000);
   if (read_sps30_data()) {
     send_sps30_data("sensordata/sps30", massPM2, massPM10);
   }
   else
-  {
     Serial.println("no new sps30 data");
-  }
 }
 
 void connect_wifi() 
@@ -116,11 +116,10 @@ void reconnect()
       client.publish("sensorstatus","connected");
       client.subscribe("sensorstatus");
     }
-
     else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      Serial.println("try again in 5 seconds");
       delay(5000);
     }
   }
@@ -129,6 +128,7 @@ void reconnect()
 bool connect_scd30()
 {
   Serial.println("connecting scd30...");
+
   if (scd30.begin() == false) {
     Serial.println("scd30 not detected. Please check wiring. ...");
     return false;
@@ -141,6 +141,7 @@ bool connect_sps30()
 {
   Serial.println("connecting sps30...");
   sps30.EnableDebugging(0);
+  
   if (!sps30.begin(&Wire)) {
     Serial.println("sps30 not detected. Please check wiring. ...");
     return false;
@@ -179,6 +180,7 @@ bool read_sps30_data()
 {
   uint8_t ret, error_cnt = 0;
   struct sps_values val;
+
   do {
     ret = sps30.GetValues(&val);
     if (ret == ERR_DATALENGTH){
@@ -193,18 +195,13 @@ bool read_sps30_data()
       return(false);
     }
   } while (ret != ERR_OK);
+  
   massPM2 = val.MassPM2;
   massPM10 = val.MassPM10 - val.MassPM2;
   
-
-  Serial.println(val.MassPM2);
-  Serial.println(massPM2);
-  Serial.println(val.MassPM10);
-  Serial.println(massPM10);
-  
   /*
-  Serial.println(val.PartSize);
-  Serial.println(partSize);
+  Serial.println(massPM2);
+  Serial.println(massPM10);
   Serial.println(val.MassPM1);
   Serial.println(val.MassPM2);
   Serial.println(val.MassPM4);
@@ -239,7 +236,7 @@ void send_sps30_data(char *topic, float massPM2, float massPM10)
   String msg_buffer2 = ", \"n\": " + String(massPM10);
   String msg_buffer3 = "}";
   
-  msg_buffer = msg_buffer+ msg_buffer2 + msg_buffer3;
+  msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3;
   msg_buffer.toCharArray(data_a, msg_buffer.length() +1);
   client.publish(topic, data_a);
 }
