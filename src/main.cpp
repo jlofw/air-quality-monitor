@@ -194,7 +194,7 @@ bool read_sps30_data()
     }
   } while (ret != ERR_OK);
   massPM2 = val.MassPM2;
-  massPM10 = val.MassPM10;
+  massPM10 = val.MassPM10 - val.MassPM2;
   
 
   Serial.println(val.MassPM2);
