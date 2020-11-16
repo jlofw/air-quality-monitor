@@ -1,24 +1,35 @@
+/*
+Nov 2020 jlofw
+
+Hardware used: 
+Sensirion SCD30   (CO2, humidity and temperature sensor)
+Sensirion SPS30   (PM2.5, PM10 sensor)
+Arduino Nano 33 IOT
+
+I2C is used to communicate between sensors and Arduino
+Arduino sends data over MQTT and wifi to broker.
+*/
+
 #include <Wire.h>
 #include <SparkFun_SCD30_Arduino_Library.h>
 #include <sps30.h>
-
 #include <SPI.h>
 #include <WiFiNINA.h>
 #include <PubSubClient.h>
 
 #include "credentials.h"
 
-//credentials from credentials.h 
+//wifi credentials from credentials.h 
 const char* ssid = networkSSID;
 const char* password = networkPASSWORD;
 
-//reserved dhcp address for the rpi with MQTT broker
+//reserved dhcp address for the MQTT broker (rpi)
 const IPAddress serverIPAddress(192, 168, 1, 101);
 
 WiFiClient iot33Client;
 PubSubClient client(iot33Client);
-SCD30 scd30;    //CO2, humidity and temperature sensor
-SPS30 sps30;    //PM2,5, PM10 sensor
+SCD30 scd30;
+SPS30 sps30;
 
 void connect_wifi();
 void callback(char* topic, byte* payload, unsigned int length);
@@ -30,9 +41,9 @@ bool read_sps30_data();
 void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
 void send_sps30_data(char *topic, float massPM2, float massPM10);
 
-float  co2, temp, humid;
+float co2, temp, humid;
 float massPM2, massPM10;
-//float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize;
+//float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize; (SPS30 readings not used)
 
 void setup()
 {
@@ -128,7 +139,7 @@ void reconnect()
   }
 }
 
-//returns true if SCD30 is connected
+//return true if SCD30 is connected
 bool connect_scd30()
 {
   Serial.println("connecting scd30...");
@@ -141,7 +152,7 @@ bool connect_scd30()
   return true;
 }
 
-//returns true if SPS30 is connected
+//return true if SPS30 is connected
 bool connect_sps30()
 {
   Serial.println("connecting sps30...");
