@@ -8,18 +8,17 @@
 
 #include "credentials.h"
 
+//credentials from credentials.h 
 const char* ssid = networkSSID;
 const char* password = networkPASSWORD;
-const char* mqttServer = mqttSERVER;
-const char* mqttUsername = mqttUSERNAME;
-const char* mqttPassword = mqttPASSWORD;
 
+//reserved dhcp address for the rpi with MQTT broker
 const IPAddress serverIPAddress(192, 168, 1, 101);
 
 WiFiClient iot33Client;
 PubSubClient client(iot33Client);
-SCD30 scd30;
-SPS30 sps30;
+SCD30 scd30;    //CO2, humidity and temperature sensor
+SPS30 sps30;    //PM2,5, PM10 sensor
 
 void connect_wifi();
 void callback(char* topic, byte* payload, unsigned int length);
@@ -39,7 +38,7 @@ void setup()
 {
   Serial.begin(115200);
   Wire.begin();
-  client.setServer(serverIPAddress, 1883);
+  client.setServer(serverIPAddress, 1883);  //broker uses port 1883
   client.setCallback(callback);
   connect_wifi();
 
@@ -53,7 +52,7 @@ void setup()
     while (true)
     ;
   }
-  delay(1500);
+  delay(1000);
 }
 
 void loop()
@@ -62,22 +61,24 @@ void loop()
     reconnect();
   }
   client.loop();
-  delay(4000);
+  delay(1000);
 
   if (read_scd30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
   }
-  else
+  else {
     Serial.println("no new scd30 data");
-
-  delay(1000);
+  }
   if (read_sps30_data()) {
     send_sps30_data("sensordata/sps30", massPM2, massPM10);
   }
-  else
+  else {
     Serial.println("no new sps30 data");
+  }
+  delay(3000);    //wait 4s for next read
 }
 
+//connect to wifi with credentials from credentials.h
 void connect_wifi() 
 {
   delay(10);
@@ -94,6 +95,7 @@ void connect_wifi()
   Serial.println(WiFi.localIP());
 }
 
+//feedback from MQTT broker
 void callback(char* topic, byte* payload, unsigned int length)
 {
   Serial.print("message arrived [");
@@ -106,6 +108,7 @@ void callback(char* topic, byte* payload, unsigned int length)
   Serial.println();
 }
 
+//connect MQTT
 void reconnect()
 {
   while (!client.connected()) {
@@ -125,6 +128,7 @@ void reconnect()
   }
 }
 
+//returns true if SCD30 is connected
 bool connect_scd30()
 {
   Serial.println("connecting scd30...");
@@ -137,6 +141,7 @@ bool connect_scd30()
   return true;
 }
 
+//returns true if SPS30 is connected
 bool connect_sps30()
 {
   Serial.println("connecting sps30...");
@@ -162,6 +167,7 @@ bool connect_sps30()
   return true;
 }
 
+//return true if SCD30 data is read
 bool read_scd30_data()
 {
   if (scd30.dataAvailable()) {
@@ -176,10 +182,11 @@ bool read_scd30_data()
   }
 }
 
+//return true if SPS30 data is read
 bool read_sps30_data()
 {
   uint8_t ret, error_cnt = 0;
-  struct sps_values val;
+  struct sps_values val;      //read data is saved in this struct
 
   do {
     ret = sps30.GetValues(&val);
@@ -195,9 +202,9 @@ bool read_sps30_data()
       return(false);
     }
   } while (ret != ERR_OK);
-  
+
   massPM2 = val.MassPM2;
-  massPM10 = val.MassPM10 - val.MassPM2;
+  massPM10 = val.MassPM10 - val.MassPM2;    //PM10 - PM2 to see all particles between 2.5 to 10 micrometer
   
   /*
   Serial.println(massPM2);
@@ -216,6 +223,7 @@ bool read_sps30_data()
   return true;
 }
 
+//send SCD30 data via MQTT in JSON format
 void send_scd30_data(char *topic, float co2, float temp, float humid)
 {
   char data_a[50];
@@ -229,6 +237,7 @@ void send_scd30_data(char *topic, float co2, float temp, float humid)
   client.publish(topic, data_a);
 }
 
+//send SPS30 data via MQTT in JSON format
 void send_sps30_data(char *topic, float massPM2, float massPM10)
 {
   char data_a[50];
