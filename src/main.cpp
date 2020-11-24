@@ -16,6 +16,7 @@ Arduino sends data over MQTT and wifi to broker.
 #include <SPI.h>
 #include <WiFiNINA.h>
 #include <PubSubClient.h>
+#include <Adafruit_SleepyDog.h>
 
 #include "credentials.h"
 
@@ -31,6 +32,10 @@ PubSubClient client(iot33Client);
 SCD30 scd30;
 SPS30 sps30;
 
+float co2, temp, humid;
+float massPM2, massPM10;
+//float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize; (SPS30 readings not used)
+
 void connect_wifi();
 void callback(char* topic, byte* payload, unsigned int length);
 void reconnect();
@@ -40,10 +45,6 @@ bool read_scd30_data();
 bool read_sps30_data();
 void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
 void send_sps30_data(char *topic, float massPM2, float massPM10);
-
-float co2, temp, humid;
-float massPM2, massPM10;
-//float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize; (SPS30 readings not used)
 
 void setup()
 {
@@ -63,7 +64,7 @@ void setup()
     while (true)
     ;
   }
-  delay(1000);
+  delay(2000);
 }
 
 void loop()
@@ -72,21 +73,15 @@ void loop()
     reconnect();
   }
   client.loop();
-  delay(1000);
 
   if (read_scd30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
   }
-  else {
-    Serial.println("no new scd30 data");
-  }
   if (read_sps30_data()) {
-    send_sps30_data("sensordata/sps30", massPM2, massPM10);
+      send_sps30_data("sensordata/sps30", massPM2, massPM10);
   }
-  else {
-    Serial.println("no new sps30 data");
-  }
-  delay(3000);    //wait 4s for next read
+
+  Watchdog.sleep(20000); //sleep for 20s
 }
 
 //connect to wifi with credentials from credentials.h
@@ -148,6 +143,8 @@ bool connect_scd30()
     Serial.println("scd30 not detected. Please check wiring. ...");
     return false;
   }
+  scd30.setMeasurementInterval(10);     //sets measurement interval to 10s
+  scd30.setAutoSelfCalibration(true);   //auto self calibrate
   Serial.println("scd30 connected");
   return true;
 }
@@ -188,7 +185,6 @@ bool read_scd30_data()
     return true;
   }
   else {
-    Serial.println("Waiting for new data");
     return false;
   }
 }
@@ -216,21 +212,6 @@ bool read_sps30_data()
 
   massPM2 = val.MassPM2;
   massPM10 = val.MassPM10 - val.MassPM2;    //PM10 - PM2 to see all particles between 2.5 to 10 micrometer
-  
-  /*
-  Serial.println(massPM2);
-  Serial.println(massPM10);
-  Serial.println(val.MassPM1);
-  Serial.println(val.MassPM2);
-  Serial.println(val.MassPM4);
-  Serial.println(val.MassPM10);
-  Serial.println(val.NumPM0);
-  Serial.println(val.NumPM1);
-  Serial.println(val.NumPM2);
-  Serial.println(val.NumPM4);
-  Serial.println(val.NumPM10);
-  Serial.println(val.PartSize);
-  */
   return true;
 }
 
