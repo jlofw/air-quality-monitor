@@ -35,6 +35,7 @@ SPS30 sps30;
 float co2, temp, humid;
 float massPM2, massPM10;
 //float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize; (SPS30 readings not used)
+bool data_read;
 
 void connect_wifi();
 void reconnect();
@@ -65,6 +66,7 @@ void setup()
     while (true)
     ;
   }
+
   client.publish("sensorstatus","starting measurements...");
   delay(1000);
 }
@@ -74,24 +76,28 @@ void loop()
   if (!client.connected()) {
     reconnect();
   }
-  client.loop();
-  delay(1000);
 
-  if (read_scd30_data()) {
+  client.loop();
+  delay(2000);
+
+  if (read_scd30_data() && read_sps30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
+    send_sps30_data("sensordata/sps30", massPM2, massPM10);
+    data_read = true;
   }
-  else
+  else if (read_scd30_data())
   {
     client.publish("sensorstatus","cant read scd30 data");
   }
-  if (read_sps30_data()) {
-    send_sps30_data("sensordata/sps30", massPM2, massPM10);
-  }
-  else
+  else if (read_sps30_data())
   {
     client.publish("sensorstatus","cant read sps30 data");
   }
-  Watchdog.sleep(50000); //sleep for 50s (disables usb and serial interfaces)
+  if (data_read)
+  {
+    Watchdog.sleep(50000); //sleep for 50s if data is read (disables usb and serial interfaces)
+    data_read = false;
+  }
 }
 
 //connect to wifi with credentials from credentials.h
@@ -106,6 +112,7 @@ void connect_wifi()
     delay(500);
     Serial.print(".");
   }
+
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
@@ -141,6 +148,7 @@ void callback(char* topic, byte* payload, unsigned int length)
   for (int i=0; i<length; i++) {
     Serial.print((char)payload[i]);
   }
+
   Serial.println();
 }
 
@@ -155,7 +163,8 @@ bool connect_scd30()
     client.publish("sensorstatus","could not start scd30");
     return false;
   }
-  scd30.setMeasurementInterval(50);     //sets measurement interval
+
+  scd30.setMeasurementInterval(20);     //sets measurement interval
   scd30.setAutoSelfCalibration(true);   //auto self calibrate
   Serial.println("scd30 connected");
   client.publish("sensorstatus","scd30 connected");
@@ -189,6 +198,7 @@ bool connect_sps30()
     client.publish("sensorstatus","could not start sps30");
     return false;
   }
+
   Serial.println("sps30 connected");
   client.publish("sensorstatus","sps30 connected");
   return true;
