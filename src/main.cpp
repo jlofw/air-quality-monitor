@@ -38,7 +38,7 @@ float massPM2, massPM10;
 bool data_read;
 
 void connect_wifi();
-void reconnect();
+void connect_mqtt();
 void callback(char* topic, byte* payload, unsigned int length);
 bool connect_scd30();
 bool connect_sps30();
@@ -54,7 +54,7 @@ void setup()
   client.setServer(serverIPAddress, 1883);  //broker uses port 1883
   client.setCallback(callback);
   connect_wifi();
-  reconnect();
+  connect_mqtt();
 
   if (!connect_scd30()) {
     client.publish("sensorstatus","scd30 not connected, stopping...");
@@ -74,7 +74,7 @@ void setup()
 void loop()
 {
   if (!client.connected()) {
-    reconnect();
+    connect_mqtt();
   }
 
   client.loop();
@@ -121,7 +121,7 @@ void connect_wifi()
 }
 
 //connect MQTT, subscribe to sensorstatus
-void reconnect()
+void connect_mqtt()
 {
   while (!client.connected()) {
     Serial.println("connecting MQTT...");
