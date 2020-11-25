@@ -78,20 +78,22 @@ void loop()
   }
 
   client.loop();
-  delay(2000);
+  delay(1000);
 
   if (read_scd30_data() && read_sps30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
     send_sps30_data("sensordata/sps30", massPM2, massPM10);
     data_read = true;
   }
-  else if (read_scd30_data())
+  else if (!read_scd30_data())
   {
-    client.publish("sensorstatus","cant read scd30 data");
+    client.publish("sensorstatus","cant read scd30 data...");
+    delay(5000);
   }
-  else if (read_sps30_data())
+  else if (!read_sps30_data())
   {
-    client.publish("sensorstatus","cant read sps30 data");
+    client.publish("sensorstatus","cant read sps30 data...");
+    delay(5000);
   }
   if (data_read)
   {
