@@ -37,8 +37,8 @@ float massPM2, massPM10;
 //float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize; (SPS30 readings not used)
 
 void connect_wifi();
-void callback(char* topic, byte* payload, unsigned int length);
 void reconnect();
+void callback(char* topic, byte* payload, unsigned int length);
 bool connect_scd30();
 bool connect_sps30();
 bool read_scd30_data();
@@ -53,18 +53,20 @@ void setup()
   client.setServer(serverIPAddress, 1883);  //broker uses port 1883
   client.setCallback(callback);
   connect_wifi();
+  reconnect();
 
   if (!connect_scd30()) {
-    Serial.println("could not connect scd30, stopping...");
+    client.publish("sensorstatus","scd30 not connected, stopping...");
     while (true)
     ;
   }
   if (!connect_sps30()) {
-    Serial.println("could not connect sps30, stopping...");
+    client.publish("sensorstatus","sps30 not connected, stopping...");
     while (true)
     ;
   }
-  delay(2000);
+  client.publish("sensorstatus","starting measurements...");
+  delay(1000);
 }
 
 void loop()
@@ -73,19 +75,27 @@ void loop()
     reconnect();
   }
   client.loop();
+  delay(1000);
 
   if (read_scd30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
   }
-  if (read_sps30_data()) {
-      send_sps30_data("sensordata/sps30", massPM2, massPM10);
+  else
+  {
+    client.publish("sensorstatus","cant read scd30 data");
   }
-
-  Watchdog.sleep(20000); //sleep for 20s
+  if (read_sps30_data()) {
+    send_sps30_data("sensordata/sps30", massPM2, massPM10);
+  }
+  else
+  {
+    client.publish("sensorstatus","cant read sps30 data");
+  }
+  Watchdog.sleep(50000); //sleep for 50s (disables usb and serial interfaces)
 }
 
 //connect to wifi with credentials from credentials.h
-void connect_wifi() 
+void connect_wifi()
 {
   delay(10);
   Serial.print("connecting to ");
@@ -101,29 +111,16 @@ void connect_wifi()
   Serial.println(WiFi.localIP());
 }
 
-//feedback from MQTT broker
-void callback(char* topic, byte* payload, unsigned int length)
-{
-  Serial.print("message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-
-  for (int i=0;i<length;i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-}
-
-//connect MQTT
+//connect MQTT, subscribe to sensorstatus
 void reconnect()
 {
   while (!client.connected()) {
-    Serial.println("attempting MQTT connection...");
+    Serial.println("connecting MQTT...");
 
     if (client.connect("arduinoClient")) {
-      Serial.println("connected");
-      client.publish("sensorstatus","connected");
+      client.publish("sensorstatus","MQTT connected");
       client.subscribe("sensorstatus");
+      Serial.println("MQTT connected");
     }
     else {
       Serial.print("failed, rc=");
@@ -134,18 +131,34 @@ void reconnect()
   }
 }
 
+//read MQTT messages in subscribed topics
+void callback(char* topic, byte* payload, unsigned int length)
+{
+  Serial.print("message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+
+  for (int i=0; i<length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
 //return true if SCD30 is connected
 bool connect_scd30()
 {
   Serial.println("connecting scd30...");
+  client.publish("sensorstatus","connecting scd30...");
 
   if (scd30.begin() == false) {
-    Serial.println("scd30 not detected. Please check wiring. ...");
+    Serial.println("could not start scd30");
+    client.publish("sensorstatus","could not start scd30");
     return false;
   }
-  scd30.setMeasurementInterval(10);     //sets measurement interval to 10s
+  scd30.setMeasurementInterval(50);     //sets measurement interval
   scd30.setAutoSelfCalibration(true);   //auto self calibrate
   Serial.println("scd30 connected");
+  client.publish("sensorstatus","scd30 connected");
   return true;
 }
 
@@ -153,25 +166,31 @@ bool connect_scd30()
 bool connect_sps30()
 {
   Serial.println("connecting sps30...");
+  client.publish("sensorstatus","connecting sps30...");
   sps30.EnableDebugging(0);
   
   if (!sps30.begin(&Wire)) {
-    Serial.println("sps30 not detected. Please check wiring. ...");
+    Serial.println("could not connect sps30");
+    client.publish("sensorstatus","could not connect sps30");
     return false;
   }
   if (!sps30.probe()) {
-    Serial.println("could not probe sps30...");
+    Serial.println("could not probe sps30");
+    client.publish("sensorstatus","could not probe sps30");
     return false;
   }
   if (!sps30.reset()) {
-    Serial.println("could not reset sps30...");
+    Serial.println("could not reset sps30");
+    client.publish("sensorstatus","could not reset sps30");
     return false;
   }
   if (!sps30.start()) {
-    Serial.println("could not start sps30...");
+    Serial.println("could not start sps30");
+    client.publish("sensorstatus","could not start sps30");
     return false;
   }
   Serial.println("sps30 connected");
+  client.publish("sensorstatus","sps30 connected");
   return true;
 }
 
@@ -199,14 +218,12 @@ bool read_sps30_data()
     ret = sps30.GetValues(&val);
     if (ret == ERR_DATALENGTH){
         if (error_cnt++ > 3) {
-          Serial.println("error during reading sps30 values");
-          return(false);
+          return(false);    //error during reading sps30 values
         }
         delay(1000);
     }
     else if(ret != ERR_OK) {
-      Serial.println("error during reading sps30 values");
-      return(false);
+      return(false);    //error during reading sps30 values
     }
   } while (ret != ERR_OK);
 
