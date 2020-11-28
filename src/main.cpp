@@ -41,13 +41,13 @@ enum : byte {
 } connectionState;
 
 bool flag_connected = false;
-const int intervalWLAN = 5000; // (re)connection interval (s)
-const int intervalMQTT = 3000; // (re)connection interval (s)
+const int intervalWLAN = 5000;  //(re)connection interval (s)
+const int intervalMQTT = 3000;  //(re)connection interval (s)
 int timeNow;
 
 float co2, temp, humid;
 float massPM2, massPM10;
-bool data_read;
+bool data_sent;
 
 bool connect_scd30();
 bool connect_sps30();
@@ -55,7 +55,7 @@ void connect_wifi_mqtt();
 void callback(char* topic, byte* payload, unsigned int length);
 bool read_scd30_data();
 bool read_sps30_data();
-void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
+void send_scd30_data(char *topic, float co2, float temp, float humid);
 void send_sps30_data(char *topic, float massPM2, float massPM10);
 
 void setup()
@@ -88,7 +88,7 @@ void loop()
     if (read_scd30_data() && read_sps30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
     send_sps30_data("sensordata/sps30", massPM2, massPM10);
-    data_read = true;
+    data_sent = true;
     }
     else if (!read_scd30_data())
     {
@@ -100,10 +100,10 @@ void loop()
       mqttClient.publish("sensorstatus", "cant read sps30 data...");
       delay(5000);
     }
-    if (data_read)
+    if (data_sent)
     {
       Watchdog.sleep(50000); //sleep for 50s if data is read (disables usb and serial interfaces)
-      data_read = false;
+      data_sent = false;
     }
   }
 }
@@ -218,9 +218,16 @@ void connect_wifi_mqtt()
     case WLAN_UP_MQTT_UP:
       if (WiFi.status() != WL_CONNECTED)
       {
+        WiFi.disconnect();
         flag_connected = false;
         connectionState = WLAN_DOWN_MQTT_DOWN;  //reconnect wifi and mqtt
       }
+      else if (!mqttClient.connected())
+      {
+        flag_connected = false;
+        connectionState = WLAN_UP_MQTT_DOWN;    //reconnect mqtt
+      }
+      
       else {
         flag_connected = true;
       }
