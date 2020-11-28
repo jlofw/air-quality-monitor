@@ -27,21 +27,32 @@ const char* password = networkPASSWORD;
 //reserved dhcp address for the MQTT broker (rpi)
 const IPAddress serverIPAddress(192, 168, 1, 101);
 
-WiFiClient iot33Client;
-PubSubClient client(iot33Client);
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
 SCD30 scd30;
 SPS30 sps30;
 
+enum : byte {
+  WLAN_DOWN_MQTT_DOWN,
+  WLAN_STARTING_MQTT_DOWN,
+  WLAN_UP_MQTT_DOWN,
+  WLAN_UP_MQTT_STARTING,
+  WLAN_UP_MQTT_UP
+} connectionState;
+
+bool flag_connected = false;
+const int intervalWLAN = 5000; // (re)connection interval (s)
+const int intervalMQTT = 3000; // (re)connection interval (s)
+int timeNow;
+
 float co2, temp, humid;
 float massPM2, massPM10;
-//float massPM1, massPM4, numPM0, numPM1, numPM2, numPM4, numPM10, partSize; (SPS30 readings not used)
 bool data_read;
 
-void connect_wifi();
-void connect_mqtt();
-void callback(char* topic, byte* payload, unsigned int length);
 bool connect_scd30();
 bool connect_sps30();
+void connect_wifi_mqtt();
+void callback(char* topic, byte* payload, unsigned int length);
 bool read_scd30_data();
 bool read_sps30_data();
 void send_scd30_data(char *topic, float  co2, float  temp, float  humid);
@@ -51,92 +62,169 @@ void setup()
 {
   Serial.begin(115200);
   Wire.begin();
-  client.setServer(serverIPAddress, 1883);  //broker uses port 1883
-  client.setCallback(callback);
-  connect_wifi();
-  connect_mqtt();
+  mqttClient.setServer(serverIPAddress, 1883);  //broker uses port 1883
+  mqttClient.setCallback(callback);
+  delay(1000);
 
   if (!connect_scd30()) {
-    client.publish("sensorstatus","scd30 not connected, stopping...");
+    Serial.println("scd30 not connected, stopping...");
     while (true)
     ;
   }
   if (!connect_sps30()) {
-    client.publish("sensorstatus","sps30 not connected, stopping...");
+    Serial.println("sps30 not connected, stopping...");
     while (true)
     ;
   }
-
-  client.publish("sensorstatus","starting measurements...");
-  delay(1000);
 }
 
 void loop()
-{
-  if (!client.connected()) {
-    connect_mqtt();
-  }
+{  
+  connect_wifi_mqtt();
+  mqttClient.loop();
 
-  client.loop();
-  delay(1000);
-
-  if (read_scd30_data() && read_sps30_data()) {
+  if (flag_connected)
+  {
+    if (read_scd30_data() && read_sps30_data()) {
     send_scd30_data("sensordata/scd30", co2, temp, humid);
     send_sps30_data("sensordata/sps30", massPM2, massPM10);
     data_read = true;
-  }
-  else if (!read_scd30_data())
-  {
-    client.publish("sensorstatus","cant read scd30 data...");
-    delay(5000);
-  }
-  else if (!read_sps30_data())
-  {
-    client.publish("sensorstatus","cant read sps30 data...");
-    delay(5000);
-  }
-  if (data_read)
-  {
-    Watchdog.sleep(50000); //sleep for 50s if data is read (disables usb and serial interfaces)
-    data_read = false;
-  }
-}
-
-//connect to wifi with credentials from credentials.h
-void connect_wifi()
-{
-  delay(10);
-  Serial.print("connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-//connect MQTT, subscribe to sensorstatus
-void connect_mqtt()
-{
-  while (!client.connected()) {
-    Serial.println("connecting MQTT...");
-
-    if (client.connect("arduinoClient")) {
-      client.publish("sensorstatus","MQTT connected");
-      client.subscribe("sensorstatus");
-      Serial.println("MQTT connected");
     }
-    else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println("try again in 5 seconds");
+    else if (!read_scd30_data())
+    {
+      mqttClient.publish("sensorstatus", "cant read scd30 data...");
       delay(5000);
     }
+    else if (!read_sps30_data())
+    {
+      mqttClient.publish("sensorstatus", "cant read sps30 data...");
+      delay(5000);
+    }
+    if (data_read)
+    {
+      Watchdog.sleep(50000); //sleep for 50s if data is read (disables usb and serial interfaces)
+      data_read = false;
+    }
+  }
+}
+
+//return true if SCD30 is connected
+bool connect_scd30()
+{
+  Serial.println("connecting scd30...");
+
+  if (scd30.begin() == false) {
+    Serial.println("could not start scd30");
+    return false;
+  }
+
+  scd30.setMeasurementInterval(10);     //sets measurement interval
+  Serial.println("scd30 connected");
+  return true;
+}
+
+//return true if SPS30 is connected
+bool connect_sps30()
+{
+  Serial.println("connecting sps30...");
+  sps30.EnableDebugging(0);
+  
+  if (!sps30.begin(&Wire)) {
+    Serial.println("could not connect sps30");
+    return false;
+  }
+  if (!sps30.probe()) {
+    Serial.println("could not probe sps30");
+    return false;
+  }
+  if (!sps30.reset()) {
+    Serial.println("could not reset sps30");
+    return false;
+  }
+  if (!sps30.start()) {
+    Serial.println("could not start sps30");
+    return false;
+  }
+
+  Serial.println("sps30 connected");
+  return true;
+}
+
+//(re)connect wifi and mqtt
+void connect_wifi_mqtt()
+{
+  static byte connectionState = WLAN_DOWN_MQTT_DOWN;
+
+  switch (connectionState)
+  {
+    case WLAN_DOWN_MQTT_DOWN:
+      if (WiFi.status() != WL_CONNECTED)
+      {
+        Serial.println("(re)starting WiFi...");
+        WiFi.begin(ssid, password);
+        timeNow = millis();
+        connectionState = WLAN_STARTING_MQTT_DOWN;
+      }
+      break;
+
+    case WLAN_STARTING_MQTT_DOWN:
+      if (millis() - timeNow >= intervalWLAN)
+      {
+        Serial.println("wait for WiFi connection...");
+        if (WiFi.status() == WL_CONNECTED)
+        {
+          Serial.println("WiFi connected");
+          Serial.println("IP address: ");
+          Serial.println(WiFi.localIP());
+          connectionState = WLAN_UP_MQTT_DOWN;
+        }
+        else
+        {
+          Serial.println("retry wifi connection");
+          WiFi.disconnect();
+          connectionState = WLAN_DOWN_MQTT_DOWN;
+        }
+      }
+      break;
+
+    case WLAN_UP_MQTT_DOWN:
+      if ((WiFi.status() == WL_CONNECTED) && !mqttClient.connected())
+      {
+        Serial.println("(re)starting MQTT...");
+        timeNow = millis();
+        connectionState = WLAN_UP_MQTT_STARTING;
+      }
+      break;
+
+    case WLAN_UP_MQTT_STARTING:
+      if (millis() - timeNow >= intervalMQTT)
+      {
+        Serial.println("wait for MQTT connection...");
+        if (mqttClient.connect("arduinoClient"))
+        {
+          Serial.println("WiFi and MQTT connected");
+          mqttClient.subscribe("sensorstatus");
+          mqttClient.publish("sensorstatus", "WiFi and MQTT connected");
+          connectionState = WLAN_UP_MQTT_UP;
+        }
+        else
+        {
+          Serial.println("retry MQTT connection");
+          connectionState = WLAN_UP_MQTT_DOWN;
+        }
+      }
+      break;
+
+    case WLAN_UP_MQTT_UP:
+      if (WiFi.status() != WL_CONNECTED)
+      {
+        flag_connected = false;
+        connectionState = WLAN_DOWN_MQTT_DOWN;  //reconnect wifi and mqtt
+      }
+      else {
+        flag_connected = true;
+      }
+      break;
   }
 }
 
@@ -154,58 +242,6 @@ void callback(char* topic, byte* payload, unsigned int length)
   Serial.println();
 }
 
-//return true if SCD30 is connected
-bool connect_scd30()
-{
-  Serial.println("connecting scd30...");
-  client.publish("sensorstatus","connecting scd30...");
-
-  if (scd30.begin() == false) {
-    Serial.println("could not start scd30");
-    client.publish("sensorstatus","could not start scd30");
-    return false;
-  }
-
-  scd30.setMeasurementInterval(20);     //sets measurement interval
-  scd30.setAutoSelfCalibration(true);   //auto self calibrate
-  Serial.println("scd30 connected");
-  client.publish("sensorstatus","scd30 connected");
-  return true;
-}
-
-//return true if SPS30 is connected
-bool connect_sps30()
-{
-  Serial.println("connecting sps30...");
-  client.publish("sensorstatus","connecting sps30...");
-  sps30.EnableDebugging(0);
-  
-  if (!sps30.begin(&Wire)) {
-    Serial.println("could not connect sps30");
-    client.publish("sensorstatus","could not connect sps30");
-    return false;
-  }
-  if (!sps30.probe()) {
-    Serial.println("could not probe sps30");
-    client.publish("sensorstatus","could not probe sps30");
-    return false;
-  }
-  if (!sps30.reset()) {
-    Serial.println("could not reset sps30");
-    client.publish("sensorstatus","could not reset sps30");
-    return false;
-  }
-  if (!sps30.start()) {
-    Serial.println("could not start sps30");
-    client.publish("sensorstatus","could not start sps30");
-    return false;
-  }
-
-  Serial.println("sps30 connected");
-  client.publish("sensorstatus","sps30 connected");
-  return true;
-}
-
 //return true if SCD30 data is read
 bool read_scd30_data()
 {
@@ -215,9 +251,7 @@ bool read_scd30_data()
     humid = scd30.getHumidity();
     return true;
   }
-  else {
-    return false;
-  }
+  return false;
 }
 
 //return true if SPS30 data is read
@@ -255,7 +289,7 @@ void send_scd30_data(char *topic, float co2, float temp, float humid)
   
   msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3 + msg_buffer4;
   msg_buffer.toCharArray(data_a, msg_buffer.length() +1);
-  client.publish(topic, data_a);
+  mqttClient.publish(topic, data_a);
 }
 
 //send SPS30 data via MQTT in JSON format
@@ -268,5 +302,5 @@ void send_sps30_data(char *topic, float massPM2, float massPM10)
   
   msg_buffer = msg_buffer + msg_buffer2 + msg_buffer3;
   msg_buffer.toCharArray(data_a, msg_buffer.length() +1);
-  client.publish(topic, data_a);
+  mqttClient.publish(topic, data_a);
 }
