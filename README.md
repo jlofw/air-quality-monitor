@@ -36,3 +36,13 @@ with a change node and the following code:
   "humidity": msg.payload.h
 }
 ```
+
+## Libraries used
+[SparkFun_SCD30_Arduino_Library](https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library)
+
+[sps30 by paulvha](https://github.com/paulvha/sps30)
+
+[pubsubclient by knolleary](https://github.com/knolleary/pubsubclient)
+
+[Adafruit_SleepyDog](https://github.com/adafruit/Adafruit_SleepyDog)
+
