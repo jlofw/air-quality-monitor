@@ -1,0 +1,261 @@
+[
+    {
+        "id": "1ade158e.d44eba",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "a9e86fa6.ebf86",
+        "type": "mqtt in",
+        "z": "1ade158e.d44eba",
+        "name": "",
+        "topic": "sensordata/scd30",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "37099e15.efc942",
+        "x": 430,
+        "y": 440,
+        "wires": [
+            [
+                "c8abd6cf.826a28",
+                "7b5eb20b.c0605c"
+            ]
+        ]
+    },
+    {
+        "id": "c8abd6cf.826a28",
+        "type": "change",
+        "z": "1ade158e.d44eba",
+        "name": "prepare fields",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "{\t    \"co2\": msg.payload.c,\t    \"temperature\": msg.payload.t,\t    \"humidity\": msg.payload.h\t}",
+                "tot": "jsonata"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 630,
+        "y": 440,
+        "wires": [
+            [
+                "2d74ca83.cf1496",
+                "444eda32.088264"
+            ]
+        ]
+    },
+    {
+        "id": "444eda32.088264",
+        "type": "influxdb out",
+        "z": "1ade158e.d44eba",
+        "influxdb": "90f9b2.8673165",
+        "name": "write to influxdb",
+        "measurement": "scd30",
+        "precision": "",
+        "retentionPolicy": "",
+        "x": 850,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "7b5eb20b.c0605c",
+        "type": "debug",
+        "z": "1ade158e.d44eba",
+        "name": "scd30_1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 630,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "2d74ca83.cf1496",
+        "type": "debug",
+        "z": "1ade158e.d44eba",
+        "name": "scd30_2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 850,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "633f720.be79e9",
+        "type": "mqtt in",
+        "z": "1ade158e.d44eba",
+        "name": "",
+        "topic": "sensordata/sps30",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "37099e15.efc942",
+        "x": 430,
+        "y": 280,
+        "wires": [
+            [
+                "fd1dd793.754898",
+                "d5912064.c1e46"
+            ]
+        ]
+    },
+    {
+        "id": "fd1dd793.754898",
+        "type": "change",
+        "z": "1ade158e.d44eba",
+        "name": "prepare fields",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "{\t    \"massPM2\": msg.payload.m,\t    \"massPM10\": msg.payload.n\t}",
+                "tot": "jsonata"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 630,
+        "y": 280,
+        "wires": [
+            [
+                "61ce695d.ce5288",
+                "1ac73edf.1947d1"
+            ]
+        ]
+    },
+    {
+        "id": "1ac73edf.1947d1",
+        "type": "influxdb out",
+        "z": "1ade158e.d44eba",
+        "influxdb": "90f9b2.8673165",
+        "name": "write to influxdb",
+        "measurement": "sps30",
+        "precision": "",
+        "retentionPolicy": "",
+        "x": 850,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "d5912064.c1e46",
+        "type": "debug",
+        "z": "1ade158e.d44eba",
+        "name": "sps30_1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 630,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "61ce695d.ce5288",
+        "type": "debug",
+        "z": "1ade158e.d44eba",
+        "name": "sps30_2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 850,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "b55004c9.db76e8",
+        "type": "mqtt in",
+        "z": "1ade158e.d44eba",
+        "name": "",
+        "topic": "sensorstatus",
+        "qos": "2",
+        "datatype": "auto",
+        "broker": "37099e15.efc942",
+        "x": 410,
+        "y": 200,
+        "wires": [
+            [
+                "74e5d54.2ab2a2c"
+            ]
+        ]
+    },
+    {
+        "id": "74e5d54.2ab2a2c",
+        "type": "debug",
+        "z": "1ade158e.d44eba",
+        "name": "status",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 580,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "37099e15.efc942",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "90f9b2.8673165",
+        "type": "influxdb",
+        "hostname": "influxdb",
+        "port": "8086",
+        "protocol": "http",
+        "database": "sensordata",
+        "name": "",
+        "usetls": false,
+        "tls": ""
+    }
+]
