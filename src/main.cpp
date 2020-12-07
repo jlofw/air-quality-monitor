@@ -102,7 +102,7 @@ void loop()
     }
     if (data_sent)
     {
-      Watchdog.sleep(50000); //sleep for 50s if data is read (disables usb and serial interfaces)
+      Watchdog.sleep(90000); //sleep for 90s if data is read (disables usb and serial interfaces)
       data_sent = false;
     }
   }
@@ -118,7 +118,8 @@ bool connect_scd30()
     return false;
   }
 
-  scd30.setMeasurementInterval(10);     //sets measurement interval
+  scd30.setMeasurementInterval(15);     //sets measurement interval
+  scd30.setTemperatureOffset(2.00);     //sets temp offset -2 deg, calibrated with Brymen BM235
   Serial.println("scd30 connected");
   return true;
 }
