@@ -1,5 +1,5 @@
 # air-quality-monitor (work in progress)
-Constructed by Sensirion SCD30 and SPS30 sensors, Arduino and Raspberry Pi. Used software is Mosquitto, Node-RED, InfluxDB and Grafana.
+Constructed by Sensirion SCD30 and SPS30 sensors, Arduino Nano IoT and Raspberry Pi 4B. Used software is Mosquitto, Node-RED, InfluxDB and Grafana.
 
 ## Grafana with data from sensors
 <img src="https://i.imgur.com/OfrikDk.png" width="800px" height="auto">
