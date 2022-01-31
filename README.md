@@ -1,4 +1,4 @@
-# air-quality-monitor [DEPRECATED]
+# air-quality-monitor (deprecated)
 Constructed by Sensirion SCD30 and SPS30 sensors, Arduino Nano IoT and Raspberry Pi 4B. Used software is Mosquitto, Node-RED, InfluxDB and Grafana.
 
 ## Grafana with data from sensors
